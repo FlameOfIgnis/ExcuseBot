@@ -1,6 +1,6 @@
 const Discord = require("discord.js");
 const fs = require("fs");
-
+const request = require("request")
 const _insults = require("./insults.json")
 
 function getRandomInt(min, max) {
@@ -10,8 +10,11 @@ function getRandomInt(min, max) {
 }
 
 
-module.exports = function(client,_storage){
 
+module.exports = function(client,_storage){
+    
+    var announcements=  JSON.parse(fs.readFileSync(_storage + "announcements.json"))
+    var lastAnnouncedCTF = announcements["lastAnnouncement"]
     function getChannelStorage(guild){
         return _storage + guild.id + ".json";
     }
@@ -36,7 +39,11 @@ module.exports = function(client,_storage){
         return  adj + " " + noun;
     }
 
-    function constructCTFEmbed(ctf){
+    function saveAnnouncementsState(){
+        fs.writeFileSync(_storage + "announcements.json", JSON.stringify(announcements));
+    }
+
+    function constructCTFEmbed(conf, ctf){
         const embed = new Discord.RichEmbed()
         .setColor('#fc1303')
         .setTitle(ctf.title)
@@ -51,7 +58,7 @@ module.exports = function(client,_storage){
         .addField('Duration', (ctf.duration.days)?ctf.duration.days+" and " + ctf.duration.hours + " hours." : ctf.duration.hours + " hours.", true)
         .setImage(ctf.logo)
         .setTimestamp()
-        .setFooter('React with 4house to join', ctf.logo);
+        .setFooter('React with ' + conf["joinEmote"] + ' in 4 hours to join', ctf.logo);
         return embed;
     }
 
@@ -59,7 +66,33 @@ module.exports = function(client,_storage){
         var msg = "Hey there " + insult() + ". There is a new ctf coming up!";
         var conf = getConfig(guild);
         client.channels.get(conf["announcementChannel"]).send(msg);
-        client.channels.get(conf["announcementChannel"]).send(constructCTFEmbed(ctf));
+        client.channels.get(conf["announcementChannel"]).send(constructCTFEmbed(conf, ctf)).then(message=>{
+            announcements["lastAnnouncement"] = ctf.id
+            announcements[ctf.id]={}
+            announcements[ctf.id]["ctf"]=ctf
+            announcements[ctf.id].message=message.id;
+            message.react(conf["joinEmote"])
+            guild.createRole({name:ctf.title, color:'PURPLE'}).then(role=>{
+                announcements[ctf.id].role=role.id
+                saveAnnouncementsState();
+                lastAnnouncedCTF=ctf.id
+            })
+
+            const filter = (reaction, user) => {
+                return [conf["joinEmote"]].includes(reaction.emoji.name);
+            };
+
+            message.awaitReactions(filter, { max: 1000, time: 10000, errors: ['time'] }).then(collected=>{
+                message.channel.send("How the fuck is this possible?!!")
+            }).catch(collected => {
+                console.log(collected)
+                collected.get(conf["joinEmote"]).users.forEach(user=>{
+                    guild.members.get(user.id).addRole(announcements[ctf.id].role);
+                })
+            });
+           
+        })
+        
         return;
     }
 
@@ -116,9 +149,6 @@ module.exports = function(client,_storage){
                             setchannel [channeltype] [channeltag]
 						\`\`\`\ `.replace(/\t| {4}/g,''))//remove tabs
                 }
-
-
-
         },
         admin:{
             "setchannel": async function(message){
@@ -142,8 +172,16 @@ module.exports = function(client,_storage){
                 if(bCorrectFlag) message.channel.send("Oki.")
                 else message.channel.send("First modifier is incorrect")
                 
+            },
+            "setjoin": async function(message){
+                lst = msgParse(message);
+                if(lst.length!=2){
+                    message.channel.send("Pass an emote as a paramater, or gtfo.")
+                    return;
+                }
+                console.log(lst[1]);
+                updateConfigs(message.guild,"joinEmote", lst[1]) 
             }
-
         }
     }
 
