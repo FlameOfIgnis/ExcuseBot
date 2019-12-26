@@ -104,18 +104,17 @@ module.exports = function(client,_storage){
                     announceNewCTF(message.guild, ctf)
                 },
                 "help": async function(message){
-                    message.channel.send('\
-						\`\`\`markdown\n\
-						# $ping:\n\
-						    Shows you how bad my connection is\n\
-						# $test:\n\
-						    test\n\
-						# $help: \n\
-                            helps\n\
-                        # $setchannel: \n\
-                            setchannel [channeltype] [channeltag]\n\
-						\`\`\`\
-					'.replace(/\t| {4}/g,''))//remove tabs
+                    message.channel.send(`
+                    \`\`\`markdown
+						# $ping:
+						    Shows you how bad my connection is
+						# $test:
+						    test
+						# $help:
+                            helps
+                        # $setchannel: 
+                            setchannel [channeltype] [channeltag]
+						\`\`\`\ `.replace(/\t| {4}/g,''))//remove tabs
                 }
 
 
