@@ -35,9 +35,31 @@ module.exports = function(client,_storage){
         var noun = _insults.nouns[getRandomInt(0,_insults.nouns.length-1)]
         return  adj + " " + noun;
     }
+
+    function constructCTFEmbed(ctf){
+        const embed = new Discord.RichEmbed()
+        .setColor('#fc1303')
+        .setTitle(ctf.title)
+        .setURL(ctf.ctftime_url)
+        .setAuthor("by " + ctf.organizers[0].name, ctf.logo, 'https://discord.js.org')
+        .setDescription(ctf.description)
+        .setThumbnail(ctf.logo)
+        .addField(ctf.format, "weight: " + ctf.weight)
+        .addBlankField()
+        .addField('Start', ctf.start, true)
+        .addField('Finish', ctf.finish, true)
+        .addField('Duration', (ctf.duration.days)?ctf.duration.days+" and " + ctf.duration.hours + " hours." : ctf.duration.hours + " hours.", true)
+        .setImage(ctf.logo)
+        .setTimestamp()
+        .setFooter('React with 4house to join', ctf.logo);
+        return embed;
+    }
+
     function announceNewCTF(guild, ctf){
         var msg = "Hey there " + insult() + ". There is a new ctf coming up!";
-        client.channels.get(getConfig(guild)["announcementChannel"]).send(msg);
+        var conf = getConfig(guild);
+        client.channels.get(conf["announcementChannel"]).send(msg);
+        client.channels.get(conf["announcementChannel"]).send(constructCTFEmbed(ctf));
         return;
     }
 
@@ -48,7 +70,37 @@ module.exports = function(client,_storage){
                 m.edit(`Pong! Latency is ${m.createdTimestamp - message.createdTimestamp}ms. API Latency is ${Math.round(client.ping)}ms`);
                 },
                 "test": async function(message){
-                    var ctf={}
+                    var ctf={
+                        "organizers": [
+                        {
+                        "id": 10498,
+                        "name": "th3jackers"
+                        }
+                        ],
+                        "onsite": false,
+                        "finish": "2015-01-24T08:00:00+00:00",
+                        "description": "Registration will be open when CTF Start\r\n#WCTF #th3jackers\r\nhttp://ctf.th3jackers.com/",
+                        "weight": 5,
+                        "title": "WCTF  - th3jackers",
+                        "url": "http://ctf.th3jackers.com/",
+                        "is_votable_now": false,
+                        "restrictions": "Open",
+                        "format": "Jeopardy",
+                        "start": "2015-01-23T20:00:00+00:00",
+                        "participants": 18,
+                        "ctftime_url": "https://ctftime.org/event/190/",
+                        "location": "",
+                        "live_feed": "",
+                        "public_votable": false,
+                        "duration": {
+                        "hours": 12,
+                        "days": 0
+                        },
+                        "logo": "https://ctftime.org/media/cache/53/3d/533d60a279929f1901999ef938f2c600.png",
+                        "format_id": 1,
+                        "id": 190,
+                        "ctf_id": 93
+                        }
                     announceNewCTF(message.guild, ctf)
                 },
                 "help": async function(message){
