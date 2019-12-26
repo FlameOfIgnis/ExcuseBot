@@ -56,7 +56,6 @@ client.on("message", async message => {
 		}
 		//error means thats not a valid command
 		catch(err){
-			message.channel.send("I don't care")
 		}
 		//if user is an administrator allow access to admin level commands
 		if(message.member.hasPermission(["ADMINISTRATOR"])){
@@ -78,7 +77,7 @@ function getRandomInt(min, max) {
 function createFreshConfigs(filename){
 	var conf = {
 		"announcementChannel": -1,
-		"lastAnnouncedEventID": -1,
+		"lastAnnouncedEventID": -1
 	}
 	fs.writeFileSync(_storage + filename, JSON.stringify(conf));
 }

@@ -1,5 +1,5 @@
 const Discord = require("discord.js");
-
+const fs = require("fs");
 
 module.exports = function(client,_storage){
 
@@ -8,7 +8,7 @@ module.exports = function(client,_storage){
     }
 
     function updateConfigs(guild, keyname, newValue){
-        var conf = fs.readFileSync(getChannelStorage(guild))
+        var conf = JSON.parse(fs.readFileSync(getChannelStorage(guild)))
         conf[keyname] = newValue;
         fs.writeFileSync(getChannelStorage(guild), JSON.stringify(conf));
     }
@@ -27,7 +27,7 @@ module.exports = function(client,_storage){
                     const m = message.channel.send('testing')
                 },
                 "help": async function(message){
-                    message.channel.send('jk. Here are some commands\n\
+                    message.channel.send('\
 						\`\`\`markdown\n\
 						# $ping:\n\
 						    Shows you how bad my connection is\n\
@@ -36,9 +36,9 @@ module.exports = function(client,_storage){
 						# $help: \n\
                             helps\n\
                         # $setchannel: \n\
-						    setchannel channeltype channeltag\n\
+                            setchannel [channeltype] [channeltag]\n\
 						\`\`\`\
-					'.replace(/\t/g,''))//remove tabs
+					'.replace(/\t| {4}/g,''))//remove tabs
                 }
 
 
@@ -51,14 +51,20 @@ module.exports = function(client,_storage){
                     message.channel.send("Thats not how you use that command.")
                     return;
                 }
+                var bCorrectFlag=true
                 switch(lst[1]){
                     case "announcement":
-                        updateConfigs(guild,"announcementChannel", lst[2]) 
+                        updateConfigs(message.guild,"announcementChannel", lst[2]) 
                     break;
                     case "info":
-
+                        updateConfigs(message.guild,"infoChannel", lst[2]) 
                     break;
+                    default:
+                        bCorrectFlag=false;
                 }
+                if(bCorrectFlag) message.channel.send("Oki.")
+                else message.channel.send("First modifier is incorrect")
+                
             }
 
         }
