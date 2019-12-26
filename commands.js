@@ -1,6 +1,15 @@
 const Discord = require("discord.js");
 const fs = require("fs");
 
+const _insults = require("./insults.json")
+
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+
 module.exports = function(client,_storage){
 
     function getChannelStorage(guild){
@@ -13,8 +22,23 @@ module.exports = function(client,_storage){
         fs.writeFileSync(getChannelStorage(guild), JSON.stringify(conf));
     }
 
+    function getConfig(guild){
+        return JSON.parse(fs.readFileSync(getChannelStorage(guild)));
+    }
+
     function msgParse(message){
-        return message.content.split(" ")
+        return message.content.split(" ");
+    }
+
+    function insult(){
+        var adj = _insults.adjectives[getRandomInt(0,_insults.adjectives.length-1)]
+        var noun = _insults.nouns[getRandomInt(0,_insults.nouns.length-1)]
+        return  adj + " " + noun;
+    }
+    function announceNewCTF(guild, ctf){
+        var msg = "Hey there " + insult() + ". There is a new ctf coming up!";
+        client.channels.get(getConfig(guild)["announcementChannel"]).send(msg);
+        return;
     }
 
     return {
@@ -24,7 +48,8 @@ module.exports = function(client,_storage){
                 m.edit(`Pong! Latency is ${m.createdTimestamp - message.createdTimestamp}ms. API Latency is ${Math.round(client.ping)}ms`);
                 },
                 "test": async function(message){
-                    const m = message.channel.send('testing')
+                    var ctf={}
+                    announceNewCTF(message.guild, ctf)
                 },
                 "help": async function(message){
                     message.channel.send('\
@@ -52,6 +77,7 @@ module.exports = function(client,_storage){
                     return;
                 }
                 var bCorrectFlag=true
+                lst[2] = lst[2].replace(/<|>|#/g, '');
                 switch(lst[1]){
                     case "announcement":
                         updateConfigs(message.guild,"announcementChannel", lst[2]) 
