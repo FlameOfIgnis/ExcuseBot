@@ -43,6 +43,28 @@ module.exports = function(client,_storage){
         fs.writeFileSync(_storage + "announcements.json", JSON.stringify(announcements));
     }
 
+
+    function updateFromCTFTime(limit){
+        if(!limit) limit=5;
+        request('https://ctftime.org/api/v1/events/?limit=' + limit, function (error, response, body) {
+            var ctfs = JSON.parse(body)
+            for (var num=0;num<ctfs.length;num++){
+                var ctf=ctfs[num]
+                if(ctf.id==announcements.lastAnnouncement){
+                    console.log("Reached already announced ones.")
+                    break;
+                }
+                client.guilds.forEach(_guild=>{
+                    announceNewCTF(_guild,ctf);
+                })
+            }
+            announcements.lastAnnouncement=ctfs[0].id;
+            saveAnnouncementsState();
+        });
+    }
+    setInterval(updateFromCTFTime, 600000);
+
+
     function constructCTFEmbed(conf, ctf){
         const embed = new Discord.RichEmbed()
         .setColor('#fc1303')
@@ -52,6 +74,7 @@ module.exports = function(client,_storage){
         .setDescription(ctf.description)
         .setThumbnail(ctf.logo)
         .addField(ctf.format, "weight: " + ctf.weight)
+        .addField("id", ctf.id)
         .addBlankField()
         .addField('Start', ctf.start, true)
         .addField('Finish', ctf.finish, true)
@@ -62,38 +85,55 @@ module.exports = function(client,_storage){
         return embed;
     }
 
-    function announceNewCTF(guild, ctf){
+    async function announceNewCTF(guild, ctf){
         var msg = "Hey there " + insult() + ". There is a new ctf coming up!";
         var conf = getConfig(guild);
         client.channels.get(conf["announcementChannel"]).send(msg);
-        client.channels.get(conf["announcementChannel"]).send(constructCTFEmbed(conf, ctf)).then(message=>{
-            announcements["lastAnnouncement"] = ctf.id
+        await client.channels.get(conf["announcementChannel"]).send(constructCTFEmbed(conf, ctf)).then(message=>{
             announcements[ctf.id]={}
             announcements[ctf.id]["ctf"]=ctf
             announcements[ctf.id].message=message.id;
             message.react(conf["joinEmote"])
             guild.createRole({name:ctf.title, color:'PURPLE'}).then(role=>{
                 announcements[ctf.id].role=role.id
-                saveAnnouncementsState();
-                lastAnnouncedCTF=ctf.id
+                guild.createChannel(ctf.title,{
+                    type: 'text',
+                    permissionOverwrites: [
+                        {
+                            id: message.guild.id,
+                            deny: ['VIEW_CHANNEL']
+                        },
+                        {
+                            id: role.id,
+                            allow: ['VIEW_CHANNEL']
+                        },
+                        {
+                            id: client.user.id,
+                            allow: ['VIEW_CHANNEL']
+                        }
+                    ]
+                }).then(channel=>{
+                    announcements[ctf.id].channel=channel.id
+                    channel.setParent(conf["ctfCategory"]);
+                    saveAnnouncementsState();
+                })
+                
+                
             })
 
             const filter = (reaction, user) => {
                 return [conf["joinEmote"]].includes(reaction.emoji.name);
             };
 
-            message.awaitReactions(filter, { max: 1000, time: 10000, errors: ['time'] }).then(collected=>{
+            message.awaitReactions(filter, { max: 1000, time: 14400000, errors: ['time'] }).then(collected=>{
                 message.channel.send("How the fuck is this possible?!!")
             }).catch(collected => {
-                console.log(collected)
                 collected.get(conf["joinEmote"]).users.forEach(user=>{
                     guild.members.get(user.id).addRole(announcements[ctf.id].role);
                 })
             });
            
         })
-        
-        return;
     }
 
     return {
@@ -103,6 +143,7 @@ module.exports = function(client,_storage){
                 m.edit(`Pong! Latency is ${m.createdTimestamp - message.createdTimestamp}ms. API Latency is ${Math.round(client.ping)}ms`);
                 },
                 "test": async function(message){
+                    return;
                     var ctf={
                         "organizers": [
                         {
@@ -179,8 +220,54 @@ module.exports = function(client,_storage){
                     message.channel.send("Pass an emote as a paramater, or gtfo.")
                     return;
                 }
-                console.log(lst[1]);
                 updateConfigs(message.guild,"joinEmote", lst[1]) 
+            },
+
+            "setctfcategory": async function(message){
+                lst = msgParse(message);
+                if(lst.length!=2){
+                    message.channel.send("Tag a category or gtfo.")
+                    return;
+                }
+                updateConfigs(message.guild,"ctfCategory", lst[1]) 
+            },
+
+            "endctf": async function(message){
+                lst = msgParse(message);
+                if(lst.length!=2){
+                    message.channel.send("Pass a ctf id as a paramater, or gtfo.")
+                    return;
+                }
+                try{
+                    await message.guild.channels.get(announcements[lst[1]].channel).delete();
+                    message.guild.roles.find(role => role.name === announcements[lst[1]].ctf.title).delete();
+                }
+                catch(err){
+                    console.log(err)
+                }
+            },
+            "forceCheck": async function(message){
+                lst = msgParse(message);
+                if(lst.length!=2){
+                    updateFromCTFTime();
+                }
+                updateFromCTFTime(lst[1]);
+            },
+            "announce": async function(message){
+                lst = msgParse(message);
+                if(lst.length!=2){
+                    message.channel.send("Pass a ctf id as a paramater, or gtfo.")
+                    return;
+                }
+                try{
+                    request('https://ctftime.org/api/v1/events/' + lst[1] + '/', function (error, response, body) {
+                        var ctf = JSON.parse(body)
+                        announceNewCTF(message.guild,ctf);
+                    });
+                }
+                catch(err){
+                    console.log(err)
+                }
             }
         }
     }
