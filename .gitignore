@@ -109,3 +109,5 @@ dist
 
 #Dont ever expose the config
 config.json
+
+storage/
